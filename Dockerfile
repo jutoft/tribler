@@ -26,4 +26,4 @@ ENV CORE_API_PORT=20100
 EXPOSE 20100
 
 # Only run the core process with --core switch
-CMD ["./src/tribler.sh", "--core"]
+CMD ["python3", "/home/user/tribler/src/run_tribler.py", "--core"]
