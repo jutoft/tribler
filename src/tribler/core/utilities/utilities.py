@@ -272,6 +272,13 @@ def to_fts_query(text):
     return ' '.join(words)
 
 
+def parse_bool(input):
+    if isinstance(input, str):
+        if input.lower() == "false":
+            return False
+    return bool(input)
+
+
 def show_system_popup(title, text):
     """
     Create a native pop-up without any third party dependency.
