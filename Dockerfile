@@ -1,10 +1,9 @@
-# The base image already builds the libtorrent dependency so only Python pip packages
-# are necessary to be installed to run Tribler core process.
-FROM triblercore/libtorrent:1.2.10-x
+# libtorrent-1.2.9 does not support 3.11
+FROM python:3.10
 
-# Update the base system and install required libsodium and Python pip
-RUN apt update && apt upgrade -y
-RUN apt install -y libsodium23 python3-pip git
+RUN apt-get update \
+    && apt-get install -y libsodium23 git \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -ms /bin/bash user
 USER user
@@ -20,10 +19,6 @@ RUN pip3 install -r requirements/core-requirements.txt
 # Copy the source code and set the working directory
 COPY ./ tribler
 WORKDIR /home/user/tribler
-
-# Set the REST API port and expose it
-ENV CORE_API_PORT=20100
-EXPOSE 20100
 
 # Only run the core process with --core switch
 CMD ["python3", "/home/user/tribler/src/run_tribler.py", "--core"]
