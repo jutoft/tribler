@@ -1,0 +1,49 @@
+# The base image already builds the libtorrent dependency so only Python pip packages
+# are necessary to be installed to run Tribler core process.
+FROM docker.io/library/python:3 as libtorrent_builder
+
+RUN apt-get update \
+    && apt-get install -y build-essential checkinstall libboost-system-dev libboost-tools-dev libboost-python-dev libboost-chrono-dev libboost-random-dev libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir libtorrent && cd libtorrent \
+    && git clone -b v1.2.19 --recurse-submodules --single-branch --depth 1 https://github.com/arvidn/libtorrent
+WORKDIR /libtorrent/libtorrent
+RUN ./autotool.sh
+RUN ./configure --enable-python-binding --with-libiconv
+RUN make -j$(nproc)
+RUN ls -l /usr/local/lib/
+RUN checkinstall -D -y
+#RUN ls -Rl /libtorrent/libtorrent | grep "libtorrent-rasterbar"
+#RUN ls -l /usr/lib/python3/dist-packages/
+#RUN ls -l /usr/lib/x86_64-linux-gnu/
+
+FROM docker.io/library/python:3
+
+RUN apt-get update \
+    && apt-get install -y libsodium23 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -ms /bin/bash user
+USER user
+WORKDIR /home/user
+
+# Then, install pip dependencies so that it can be cached and does not
+# need to be built every time the source code changes.
+# This reduces the docker build time.
+RUN mkdir requirements
+COPY ./requirements-core.txt requirements/core-requirements.txt
+RUN sed '/^libtorrent/d' -i requirements/core-requirements.txt \
+    && pip3 install -r requirements/core-requirements.txt
+
+#COPY --from=libtorrent_builder /usr/lib/python3/dist-packages/*libtorrent* /usr/lib/python3/dist-packages/
+#COPY --from=libtorrent_builder /usr/lib/x86_64-linux-gnu/libtorrent-rasterbar.* /usr/lib/x86_64-linux-gnu/
+COPY --from=libtorrent_builder /libtorrent/libtorrent/bindings/python/bin/gcc-*/release/address-model-64/crypto-openssl/cxxstd-11-iso/libtorrent-python-pic-on/lt-visibility-hidden/python-*/libtorrent.cpython-*-gnu.so /usr/lib/python3/dist-packages/
+COPY --from=libtorrent_builder /libtorrent/libtorrent/bindings/python/build/lib.*/libtorrent/__init__.cpython-*-gnu.so /usr/lib/x86_64-linux-gnu/
+
+# Copy the source code and set the working directory
+COPY ./ tribler
+WORKDIR /home/user/tribler
+
+# Only run the core process with --core switch
+CMD ["python3", "/home/user/tribler/src/run_tribler.py", "--core"]
