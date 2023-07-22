@@ -93,6 +93,10 @@ class TriblerService:
             config.api.http_enabled = True
             config.api.http_port = options.restapi
 
+        api_key = os.environ.get('CORE_API_KEY')
+        if api_key and (config.api.key != api_key):
+            config.api.key = api_key
+
         if options.ipv8 > 0:
             config.ipv8.port = options.ipv8
         elif options.ipv8 == 0:
@@ -100,6 +104,9 @@ class TriblerService:
 
         if options.libtorrent != -1 and options.libtorrent > 0:
             config.libtorrent.port = options.libtorrent
+
+        if options.downloaddir:
+            config.download_defaults.saveas = options.downloaddir
 
         if options.ipv8_bootstrap_override is not None:
             config.ipv8.bootstrap_override = options.ipv8_bootstrap_override
@@ -129,6 +136,7 @@ def main(argv):
     parser.add_argument('--help', '-h', action='help', default=argparse.SUPPRESS,
                         help='Show this help message and exit')
     parser.add_argument('--statedir', '-s', default=None, help='Use an alternate statedir')
+    parser.add_argument('--downloaddir', default=None, help='Use an alternative download directory')
     parser.add_argument('--restapi', '-p', default=-1, type=int, help='Use an alternate port for REST API')
     parser.add_argument('--ipv8', '-i', default=-1, type=int, help='Use an alternate port for the IPv8')
     parser.add_argument('--libtorrent', '-l', default=-1, type=int, help='Use an alternate port for libtorrent')
@@ -146,7 +154,7 @@ def main(argv):
     coro = service.start_tribler(args)
     ensure_future(coro)
 
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and sys.version < 3.8:
         # Unfortunately, this is needed on Windows for Ctrl+C to work consistently.
         # Should no longer be needed in Python 3.8.
         async def wakeup():
